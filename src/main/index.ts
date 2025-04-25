@@ -31,8 +31,8 @@ function createWindow(): void {
           "style-src 'self' 'unsafe-inline'; " +
           "img-src 'self' data: https://* blob:; " +
           "font-src 'self' data:; " +
-          "connect-src 'self' https://api.github.com https://github-contributions-api.jogruber.de https://github.com https://images.pexels.com https://www.soundhelix.com ws: wss:; " +
-          "media-src 'self' https://www.soundhelix.com;"
+          "connect-src 'self' https://* http://* ws: wss:; " +
+          "media-src 'self' https://* http://*;"
         ]
       }
     })
