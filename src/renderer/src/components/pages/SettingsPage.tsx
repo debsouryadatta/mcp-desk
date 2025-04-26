@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, User, MapPin, Github, Key, Cpu, Image, Music, Plus, Trash2 } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Loader2, Save, User, MapPin, Github, Key, Cpu, Image, Music, Plus, Trash2, Download, Upload, Server } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Settings {
@@ -24,7 +26,7 @@ interface Settings {
     artist: string;
     url: string;
   }>;
-  profilePicture: string;
+  profilePicture?: string;
 }
 
 interface Model {
@@ -38,7 +40,7 @@ export default function SettingsPage() {
     return saved ? JSON.parse(saved) : {
       name: 'Jack Grealish',
       location: '',
-      githubUsername: 'debsouryadatta',
+      githubUsername: '',
       openrouterKey: '',
       selectedModel: '',
       profilePicture: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=100',
@@ -63,6 +65,12 @@ export default function SettingsPage() {
   const [models, setModels] = useState<Model[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [mcpConfig, setMcpConfig] = useState(() => {
+    const saved = localStorage.getItem('mcp-config');
+    return saved || '{\n  "mcpServers": {}\n}';
+  });
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     if (settings.openrouterKey) {
@@ -133,6 +141,23 @@ export default function SettingsPage() {
     setLoading(true);
     try {
       localStorage.setItem('user-settings', JSON.stringify(settings));
+      
+      // Validate and save MCP config
+      try {
+        const parsedConfig = JSON.parse(mcpConfig);
+        if (!parsedConfig.mcpServers || typeof parsedConfig.mcpServers !== 'object') {
+          throw new Error('Invalid MCP configuration format');
+        }
+        localStorage.setItem('mcp-config', mcpConfig);
+      } catch (error) {
+        toast({
+          title: "Invalid MCP Configuration",
+          description: "Please check your MCP server configuration format.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       toast({
         title: "Settings saved",
         description: "Your preferences have been updated successfully.",
@@ -148,32 +173,148 @@ export default function SettingsPage() {
     setLoading(false);
   };
 
+  const exportSettings = () => {
+    try {
+      const exportData: Record<string, any> = {};
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          try {
+            exportData[key] = JSON.parse(localStorage.getItem(key) || '');
+          } catch {
+            exportData[key] = localStorage.getItem(key);
+          }
+        }
+      }
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'dashboard-settings.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Settings exported",
+        description: "Your settings have been exported successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your settings.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const importSettings = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target?.result as string);
+        
+        if (typeof importedData !== 'object') throw new Error('Invalid file format');
+
+        Object.entries(importedData).forEach(([key, value]) => {
+          localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value));
+        });
+
+        const newSettings = localStorage.getItem('user-settings');
+        if (newSettings) {
+          setSettings(JSON.parse(newSettings));
+        }
+
+        // Update MCP config state if it exists in imported data
+        const newMcpConfig = localStorage.getItem('mcp-config');
+        if (newMcpConfig) {
+          setMcpConfig(newMcpConfig);
+        }
+
+        window.dispatchEvent(new Event('storage'));
+
+        toast({
+          title: "Settings imported",
+          description: "Your settings have been imported successfully.",
+        });
+      } catch (error) {
+        toast({
+          title: "Import failed",
+          description: "The file format is invalid. Please use a properly formatted JSON file.",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.readAsText(file);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   return (
     <ScrollArea className="h-screen">
-      <div className="container max-w-4xl mx-auto py-8 px-6">
+      <div className="container max-w-4xl mx-auto py-8 px-4 sm:px-6">
         <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-6 mb-8 border-b">
-          <div className="flex items-center justify-between px-10 pt-6">
-            <div>
-              <h1 className="text-3xl font-bold">Settings</h1>
-              <p className="text-muted-foreground mt-1">Manage your preferences and configurations</p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2 sm:px-6 pt-6">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold truncate">Settings</h1>
+              <p className="text-muted-foreground mt-1 text-sm sm:text-base">Manage your preferences and configurations</p>
             </div>
-            <Button
-              onClick={handleSave}
-              disabled={loading}
-              size="lg"
-              className="bg-primary/90 hover:bg-primary"
-            >
-              {loading ? (
-                <Loader2 className="h-5 w-5 animate-spin mr-2" />
-              ) : (
-                <Save className="h-5 w-5 mr-2" />
-              )}
-              Save Changes
-            </Button>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={importSettings}
+                  accept=".json"
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-1 sm:flex-none bg-card/50 backdrop-blur-sm border-primary/20 hover:bg-primary/10 h-9 px-3 sm:px-4"
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Import</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={exportSettings}
+                  className="flex-1 sm:flex-none bg-card/50 backdrop-blur-sm border-primary/20 hover:bg-primary/10 h-9 px-3 sm:px-4"
+                  size="sm"
+                >
+                  <Download className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              </div>
+              <Button
+                onClick={handleSave}
+                disabled={loading}
+                className="bg-primary/90 hover:bg-primary h-9 px-4"
+                size="sm"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 sm:mr-2" />
+                )}
+                <span className="hidden sm:inline">Save Changes</span>
+                <span className="sm:hidden">Save</span>
+              </Button>
+            </div>
           </div>
         </div>
 
         <div className="space-y-8">
+          {/* Personal Information Card */}
           <Card className="border-2">
             <CardHeader className="px-8 pt-8">
               <div className="flex items-center gap-3 mb-3">
@@ -246,6 +387,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Music Player Card */}
           <Card className="border-2">
             <CardHeader className="px-8 pt-8">
               <div className="flex items-center gap-3 mb-3">
@@ -309,6 +451,7 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* AI Configuration Card */}
           <Card className="border-2">
             <CardHeader className="px-8 pt-8">
               <div className="flex items-center gap-3 mb-3">
@@ -364,6 +507,47 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* MCP Server Configuration Card */}
+          <Card className="border-2">
+            <CardHeader className="px-8 pt-8">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Server className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">MCP Server Configuration</CardTitle>
+                  <CardDescription className="text-sm mt-1">
+                    Configure your MCP servers for AI tools
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="px-8 pb-8">
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button className="w-full">
+                    <Server className="h-4 w-4 mr-2" />
+                    Add MCP Server
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px]">
+                  <DialogHeader>
+                    <DialogTitle>MCP Server Configuration</DialogTitle>
+                  </DialogHeader>
+                  <div className="mt-4">
+                    <Textarea
+                      value={mcpConfig}
+                      onChange={(e) => setMcpConfig(e.target.value)}
+                      className="font-mono h-[400px]"
+                      placeholder="Enter your MCP server configuration in JSON format"
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </CardContent>
+          </Card>
+
+          {/* Photo Carousel Card */}
           <Card className="border-2">
             <CardHeader className="px-8 pt-8">
               <div className="flex items-center gap-3 mb-3">

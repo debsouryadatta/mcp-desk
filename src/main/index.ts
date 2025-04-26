@@ -6,9 +6,12 @@ import icon from '../../resources/icon.png?asset'
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    width: 1100,
+    height: 700,
     show: false,
+    title: 'MCP Desk',
+    backgroundColor: '#2e2c29',
+    titleBarStyle: 'default',
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -61,7 +64,7 @@ function createWindow(): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.mcp-desk')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.

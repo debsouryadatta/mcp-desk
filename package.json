@@ -1,7 +1,7 @@
 {
   "name": "mcp-desk",
   "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "MCP Desk - Your Own MCP Client",
   "main": "./out/main/index.js",
   "author": "example.com",
   "homepage": "https://electron-vite.org",

@@ -30,7 +30,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeTab, setActiveT
     >
       <div className="flex h-16 items-center justify-between px-4">
         {!collapsed && (
-          <span className="text-xl font-semibold tracking-tight">Dashboard</span>
+          <span className="text-xl font-semibold tracking-tight">MCP Desk</span>
         )}
         <Button
           variant="ghost"

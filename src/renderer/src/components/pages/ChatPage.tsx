@@ -5,6 +5,8 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Plus, 
   Send, 
@@ -15,7 +17,9 @@ import {
   Pencil, 
   BrainCircuit,
   Settings2,
-  CheckSquare
+  CheckSquare,
+  Play,
+  Square
 } from 'lucide-react';
 
 interface Message {
@@ -30,6 +34,8 @@ interface Tool {
   name: string;
   description: string;
   enabled: boolean;
+  command?: string;
+  args?: string[];
 }
 
 interface Chat {
@@ -41,42 +47,11 @@ interface Chat {
   tools: Tool[];
 }
 
-const defaultTools: Tool[] = [
-  {
-    id: 'weather',
-    name: 'Weather',
-    description: 'Get current weather information for any location',
-    enabled: false
-  },
-  {
-    id: 'calculator',
-    name: 'Calculator',
-    description: 'Perform mathematical calculations',
-    enabled: false
-  },
-  {
-    id: 'translator',
-    name: 'Translator',
-    description: 'Translate text between languages',
-    enabled: false
-  },
-  {
-    id: 'calendar',
-    name: 'Calendar',
-    description: 'Manage calendar events and schedules',
-    enabled: false
-  }
-];
-
 export default function ChatPage() {
   const [chats, setChats] = useState<Chat[]>(() => {
     const saved = localStorage.getItem('ai-chats');
     if (saved) {
-      const parsedChats = JSON.parse(saved);
-      return parsedChats.map((chat: Chat) => ({
-        ...chat,
-        tools: chat.tools || [...defaultTools],
-      }));
+      return JSON.parse(saved);
     }
     return [];
   });
@@ -88,8 +63,88 @@ export default function ChatPage() {
 
   const [input, setInput] = useState('');
   const [showSidebar, setShowSidebar] = useState(false);
+  const [isServerRunning, setIsServerRunning] = useState(false);
+  const [showServerConfig, setShowServerConfig] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const editInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
+  const { toast } = useToast();
+
+  // Stop MCP server when component unmounts
+  useEffect(() => {
+    return () => {
+      if (isServerRunning) {
+        stopMcpServer();
+      }
+    };
+  }, [isServerRunning]);
+
+  // Stop MCP server when switching chats
+  useEffect(() => {
+    if (isServerRunning) {
+      stopMcpServer();
+    }
+  }, [currentChatId]);
+
+  // Stop MCP server when navigating away (visibility change)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isServerRunning) {
+        stopMcpServer();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isServerRunning]);
+
+  const loadMcpTools = () => {
+    try {
+      const mcpConfig = localStorage.getItem('mcp-config');
+      if (mcpConfig) {
+        const config = JSON.parse(mcpConfig);
+        if (config.mcpServers && typeof config.mcpServers === 'object') {
+          return Object.entries(config.mcpServers).map(([name, serverConfig]: [string, any]) => ({
+            id: name,
+            name,
+            description: `MCP Server: ${name}`,
+            enabled: false,
+            command: serverConfig.command,
+            args: serverConfig.args
+          }));
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error('Error loading MCP tools:', error);
+      return [];
+    }
+  };
+
+  // Update available tools when MCP config changes
+  useEffect(() => {
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === 'mcp-config') {
+        const newTools = loadMcpTools();
+        setChats(prevChats => 
+          prevChats.map(chat => ({
+            ...chat,
+            tools: chat.tools.map(tool => {
+              const newTool = newTools.find(t => t.id === tool.id);
+              if (newTool) {
+                return { ...newTool, enabled: tool.enabled };
+              }
+              return tool;
+            })
+          }))
+        );
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('ai-chats', JSON.stringify(chats));
@@ -119,12 +174,13 @@ export default function ChatPage() {
   };
 
   const createNewChat = () => {
+    const tools = loadMcpTools();
     const newChat: Chat = {
       id: Date.now().toString(),
       title: 'New Chat',
       messages: [],
       createdAt: Date.now(),
-      tools: [...defaultTools],
+      tools: tools,
     };
     setChats([newChat, ...chats]);
     setCurrentChatId(newChat.id);
@@ -216,6 +272,10 @@ export default function ChatPage() {
   };
 
   const toggleTool = (toolId: string) => {
+    if (isServerRunning) {
+      stopMcpServer();
+    }
+    
     setChats(prevChats =>
       prevChats.map(chat =>
         chat.id === currentChatId
@@ -231,6 +291,10 @@ export default function ChatPage() {
   };
 
   const enableAllTools = () => {
+    if (isServerRunning) {
+      stopMcpServer();
+    }
+    
     setChats(prevChats =>
       prevChats.map(chat =>
         chat.id === currentChatId
@@ -244,6 +308,10 @@ export default function ChatPage() {
   };
 
   const disableAllTools = () => {
+    if (isServerRunning) {
+      stopMcpServer();
+    }
+    
     setChats(prevChats =>
       prevChats.map(chat =>
         chat.id === currentChatId
@@ -254,6 +322,51 @@ export default function ChatPage() {
           : chat
       )
     );
+  };
+
+  const startMcpServer = () => {
+    const currentChat = chats.find(chat => chat.id === currentChatId);
+    const enabledTools = currentChat?.tools.filter(tool => tool.enabled) || [];
+    
+    if (enabledTools.length === 0) {
+      toast({
+        title: "No tools selected",
+        description: "Please select at least one tool to start the MCP server.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setShowServerConfig(true);
+  };
+
+  const stopMcpServer = () => {
+    setIsServerRunning(false);
+  };
+
+  const toggleServer = () => {
+    if (!isServerRunning) {
+      startMcpServer();
+    } else {
+      stopMcpServer();
+    }
+  };
+
+  const getEnabledToolsConfig = () => {
+    const currentChat = chats.find(chat => chat.id === currentChatId);
+    if (!currentChat) return {};
+
+    const enabledTools = currentChat.tools.filter(tool => tool.enabled);
+    const mcpConfig = JSON.parse(localStorage.getItem('mcp-config') || '{"mcpServers": {}}');
+    const enabledConfig = { mcpServers: {} };
+
+    enabledTools.forEach(tool => {
+      if (mcpConfig.mcpServers[tool.id]) {
+        enabledConfig.mcpServers[tool.id] = mcpConfig.mcpServers[tool.id];
+      }
+    });
+
+    return enabledConfig;
   };
 
   const currentChat = chats.find(chat => chat.id === currentChatId);
@@ -446,6 +559,23 @@ export default function ChatPage() {
                           </PopoverContent>
                         </Popover>
                       </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={toggleServer}
+                        className={`h-9 bg-white/5 border-2 border-primary/20 hover:bg-primary/10 ${
+                          isServerRunning ? 'text-yellow-500 hover:text-yellow-500' : ''
+                        }`}
+                      >
+                        {isServerRunning ? (
+                          <Square className="h-4 w-4 mr-2" />
+                        ) : (
+                          <Play className="h-4 w-4 mr-2" />
+                        )}
+                        {isServerRunning ? 'Stop MCP Server' : 'Start MCP Server'}
+                      </Button>
                     </div>
 
                     <div className="flex gap-3">
@@ -479,7 +609,7 @@ export default function ChatPage() {
               <BrainCircuit className="h-20 w-20 text-primary" />
             </div>
             <h2 className="text-4xl font-bold">
-              Welcome to Sense AI
+              Welcome to MCP Desk
             </h2>
             <p className="text-muted-foreground text-center max-w-lg text-lg">
               Start a new chat or select an existing one to begin your conversation.
@@ -603,6 +733,29 @@ export default function ChatPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <Dialog open={showServerConfig} onOpenChange={setShowServerConfig}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>MCP Server Configuration</DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            <pre className="p-4 rounded-lg bg-muted font-mono text-sm whitespace-pre-wrap break-all">
+              {JSON.stringify(getEnabledToolsConfig(), null, 2)}
+            </pre>
+            <div className="mt-4 flex justify-end">
+              <Button
+                onClick={() => {
+                  setIsServerRunning(true);
+                  setShowServerConfig(false);
+                }}
+              >
+                Start MCP Server
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

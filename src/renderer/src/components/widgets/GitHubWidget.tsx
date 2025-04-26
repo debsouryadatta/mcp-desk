@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Loader2, Github, GitFork, GitPullRequest, Star, Users, History } from 'lucide-react';
+import { Loader2, Github, GitFork, GitPullRequest, Star, Users, History, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import { Octokit } from 'octokit';
@@ -192,8 +192,21 @@ export default function GitHubWidget({ username }: { username?: string }) {
   if (!username) {
     return (
       <Card className="shadow-lg">
-        <CardContent className="p-6 text-center text-muted-foreground">
-          <p className="text-sm">Please set your GitHub username in settings</p>
+        <CardContent className="p-6 flex flex-col items-center justify-center min-h-[200px] text-center">
+          <Github className="h-12 w-12 mb-4 text-muted-foreground" />
+          <h3 className="text-lg font-medium mb-2">Connect GitHub</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Add your GitHub username in settings to see your activity and statistics here
+          </p>
+          <Button 
+            variant="outline" 
+            onClick={() => document.querySelector('[data-tab="settings"]')?.click()}
+            className="bg-primary/90 hover:bg-primary text-primary-foreground"
+            disabled
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Open Settings
+          </Button>
         </CardContent>
       </Card>
     );
@@ -218,7 +231,7 @@ export default function GitHubWidget({ username }: { username?: string }) {
             variant="outline" 
             size="sm" 
             onClick={fetchGitHubData}
-            className="bg-primary/90 hover:bg-primary text-primary-foreground"
+            className="mt-3"
           >
             Retry
           </Button>
@@ -228,72 +241,79 @@ export default function GitHubWidget({ username }: { username?: string }) {
   }
 
   return (
-    <Card className="shadow-lg overflow-hidden group">
-      <CardContent className="p-4 relative bg-gradient-to-br from-[#DFF297] to-[#DFF297]/80 dark:from-[#DFF297]/40 dark:to-[#DFF297]/20">
-        <div className="absolute inset-0 bg-white/40 dark:bg-black/20 backdrop-blur-sm" />
-        <div className="relative">
+    <Card className="shadow-lg group relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-background/60" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/10 via-purple-500/10 to-pink-500/10 opacity-70 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute inset-0 backdrop-blur-[2px]" />
+      <CardContent className="p-5 relative">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <motion.div
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Github className="h-5 w-5 text-black/90 dark:text-white/90" />
-              </motion.div>
-              <h3 className="font-medium text-black/90 dark:text-white/90">
-                @{username}
-              </h3>
+            <div>
+              <div className="text-sm text-muted-foreground">@{username}</div>
+              <div className="text-3xl font-bold mt-1 tracking-tight group-hover:text-primary transition-colors">
+                {data.totalContributions} contributions
+              </div>
             </div>
+            <motion.div
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
+            >
+              <Github className="h-12 w-12" />
+            </motion.div>
           </div>
 
           <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center p-2 rounded-lg bg-black/10 backdrop-blur-sm dark:bg-white/10"
+              className="flex flex-col items-center p-2 rounded-lg bg-white/5 backdrop-blur-sm dark:bg-white/10"
             >
-              <Users className="h-4 w-4 mb-1 text-black/90 dark:text-white/90" />
-              <span className="text-xs text-black/90 dark:text-white/90">Followers</span>
-              <span className="font-medium text-black dark:text-white">{data.stats.followers}</span>
+              <Users className="h-4 w-4 mb-1" />
+              <span className="text-xs text-muted-foreground">Followers</span>
+              <span className="font-medium">{data.stats.followers}</span>
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center p-2 rounded-lg bg-black/10 backdrop-blur-sm dark:bg-white/10"
+              className="flex flex-col items-center p-2 rounded-lg bg-white/5 backdrop-blur-sm dark:bg-white/10"
             >
-              <Users className="h-4 w-4 mb-1 text-black/90 dark:text-white/90" />
-              <span className="text-xs text-black/90 dark:text-white/90">Following</span>
-              <span className="font-medium text-black dark:text-white">{data.stats.following}</span>
+              <Users className="h-4 w-4 mb-1" />
+              <span className="text-xs text-muted-foreground">Following</span>
+              <span className="font-medium">{data.stats.following}</span>
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center p-2 rounded-lg bg-black/10 backdrop-blur-sm dark:bg-white/10"
+              className="flex flex-col items-center p-2 rounded-lg bg-white/5 backdrop-blur-sm dark:bg-white/10"
             >
-              <GitPullRequest className="h-4 w-4 mb-1 text-black/90 dark:text-white/90" />
-              <span className="text-xs text-black/90 dark:text-white/90">Repos</span>
-              <span className="font-medium text-black dark:text-white">{data.stats.publicRepos}</span>
+              <GitPullRequest className="h-4 w-4 mb-1" />
+              <span className="text-xs text-muted-foreground">Repos</span>
+              <span className="font-medium">{data.stats.publicRepos}</span>
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center p-2 rounded-lg bg-black/10 backdrop-blur-sm dark:bg-white/10"
+              className="flex flex-col items-center p-2 rounded-lg bg-white/5 backdrop-blur-sm dark:bg-white/10"
             >
-              <Star className="h-4 w-4 mb-1 text-black/90 dark:text-white/90" />
-              <span className="text-xs text-black/90 dark:text-white/90">Stars</span>
-              <span className="font-medium text-black dark:text-white">{data.stats.stars}</span>
+              <Star className="h-4 w-4 mb-1" />
+              <span className="text-xs text-muted-foreground">Stars</span>
+              <span className="font-medium">{data.stats.stars}</span>
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center p-2 rounded-lg bg-black/10 backdrop-blur-sm dark:bg-white/10"
+              className="flex flex-col items-center p-2 rounded-lg bg-white/5 backdrop-blur-sm dark:bg-white/10"
             >
-              <GitFork className="h-4 w-4 mb-1 text-black/90 dark:text-white/90" />
-              <span className="text-xs text-black/90 dark:text-white/90">Forks</span>
-              <span className="font-medium text-black dark:text-white">{data.stats.forks}</span>
+              <GitFork className="h-4 w-4 mb-1" />
+              <span className="text-xs text-muted-foreground">Forks</span>
+              <span className="font-medium">{data.stats.forks}</span>
             </motion.div>
             <motion.div 
               whileHover={{ scale: 1.02 }}
-              className="flex flex-col items-center p-2 rounded-lg bg-black/10 backdrop-blur-sm dark:bg-white/10"
+              className="flex flex-col items-center p-2 rounded-lg bg-white/5 backdrop-blur-sm dark:bg-white/10"
             >
-              <History className="h-4 w-4 mb-1 text-black/90 dark:text-white/90" />
-              <span className="text-xs text-black/90 dark:text-white/90">Streak</span>
-              <span className="font-medium text-black dark:text-white">{data.stats.streak.current}d</span>
+              <History className="h-4 w-4 mb-1" />
+              <span className="text-xs text-muted-foreground">Streak</span>
+              <span className="font-medium">{data.stats.streak.current}d</span>
             </motion.div>
           </div>
 
@@ -320,7 +340,7 @@ export default function GitHubWidget({ username }: { username?: string }) {
                           <motion.div
                             whileHover={{ scale: 1.5 }}
                             transition={{ duration: 0.2 }}
-                            className={`w-[10px] h-[10px] rounded-sm border ${getIntensityClass(day.level)} hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-[#DFF297]`}
+                            className={`w-[10px] h-[10px] rounded-sm border ${getIntensityClass(day.level)} hover:ring-2 hover:ring-offset-2 hover:ring-offset-background hover:ring-primary`}
                           />
                         </TooltipTrigger>
                         <TooltipContent>
@@ -337,24 +357,24 @@ export default function GitHubWidget({ username }: { username?: string }) {
             </TooltipProvider>
 
             <div className="flex items-center justify-between mt-2">
-              <div className="text-xs text-black/90 dark:text-white/90">
+              <div className="text-xs text-muted-foreground">
                 Longest streak: {data.stats.streak.longest} days
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-black/90 dark:text-white/90">Less</span>
+                <span className="text-xs text-muted-foreground">Less</span>
                 {[0, 1, 2, 3, 4].map((level) => (
                   <div
                     key={level}
                     className={`w-[10px] h-[10px] rounded-sm border ${getIntensityClass(level)}`}
                   />
                 ))}
-                <span className="text-xs text-black/90 dark:text-white/90">More</span>
+                <span className="text-xs text-muted-foreground">More</span>
               </div>
             </div>
           </div>
 
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-black/10 to-transparent dark:via-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
-        </div>
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/20 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-700" />
+        </motion.div>
       </CardContent>
     </Card>
   );

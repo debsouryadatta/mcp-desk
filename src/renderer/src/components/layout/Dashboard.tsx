@@ -32,7 +32,7 @@ export default function Dashboard() {
     return saved ? JSON.parse(saved) : {
       name: 'Jack Grealish',
       location: '',
-      githubUsername: 'debsouryadatta',
+      githubUsername: '',
       profilePicture: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=100',
       songs: [
         {
