@@ -9,3 +9,11 @@
 7. Installed a lower version of shadcn -> "shadcn@2.3.0" as recommended by the shadcn docs
 8. Added the ui part from bolt.new to here
 9. Had issues requesting external apis because by default, Electron has strict Content Security Policies that prevent making requests to external domains for security reasons. So added some config to allow requests to external domains -> modified main/index.ts and index.html
+10. Again went to bolt.new for adding the MCP server functionality, in the settings tab -> kept an option to add the mcp server config and in the chat ui -> in the tools select popup, shown the no. of tools in the mcp config (no. of tools = no. of keys in the mcp config json)
+11. Added the functionality to start & stop the mcp server (just the ui)
+12. Added the functionality in settings tab to export all the localstorage items in a single json file and users can even import the json file to restore the localstorage items
+13. Again import the whole thing from bolt.new to here
+14. Create a demo pingFunc to invoke a test function in the main process through IPC
+15. `pnpm i easy-mcp-use @langchain/openai`
+16. Creating the startMcpServer, agentResponse, stopMcpServer functions in the main process and calling them through IPC from the renderer process (ChatPage.tsx)
+17. Facing issues with the agentResponse function -> Specifically during the second agent call

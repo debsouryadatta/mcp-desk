@@ -541,6 +541,41 @@ export default function SettingsPage() {
                       className="font-mono h-[400px]"
                       placeholder="Enter your MCP server configuration in JSON format"
                     />
+                    <div className="mt-4 flex justify-end">
+                      <Button 
+                        onClick={() => {
+                          try {
+                            // Validate JSON
+                            JSON.parse(mcpConfig);
+                            
+                            // Save to localStorage
+                            localStorage.setItem('mcp-config', mcpConfig);
+                            
+                            // Dispatch storage event to notify other components
+                            window.dispatchEvent(new StorageEvent('storage', {
+                              key: 'mcp-config',
+                              newValue: mcpConfig
+                            }));
+                            
+                            toast({
+                              title: "Configuration saved",
+                              description: "MCP server configuration has been saved successfully."
+                            });
+                            
+                            setIsDialogOpen(false);
+                          } catch (error) {
+                            toast({
+                              title: "Invalid JSON",
+                              description: "Please enter valid JSON configuration.",
+                              variant: "destructive"
+                            });
+                          }
+                        }}
+                      >
+                        <Save className="h-4 w-4 mr-2" />
+                        Save Configuration
+                      </Button>
+                    </div>
                   </div>
                 </DialogContent>
               </Dialog>

@@ -1,22 +1,17 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron'
 
-// Custom APIs for renderer
-const api = {}
+if (!process.contextIsolated) {
+  throw new Error('contextIsolation must be enabled in the BrowserWindow')
+}
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
-if (process.contextIsolated) {
-  try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
-    contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
-    console.error(error)
-  }
-} else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
-  // @ts-ignore (define in dts)
-  window.api = api
+try {
+  contextBridge.exposeInMainWorld('context', {
+    locale: navigator.language,
+    pingFunc: (...args: any[]) => ipcRenderer.invoke('pingFunc', ...args),
+    startMcpServer: (...args: any[]) => ipcRenderer.invoke('startMcpServer', ...args),
+    stopMcpServer: (...args: any[]) => ipcRenderer.invoke('stopMcpServer', ...args),
+    agentResponse: (...args: any[]) => ipcRenderer.invoke('agentResponse', ...args)
+  })
+} catch (error) {
+  console.error(error)
 }

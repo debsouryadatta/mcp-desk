@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import { agentResponse, pingFunc, startMcpServer, stopMcpServer } from './lib'
 
 function createWindow(): void {
   // Create the browser window.
@@ -75,6 +76,10 @@ app.whenReady().then(() => {
 
   // IPC test
   ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.handle('pingFunc', (_, ...args: any[]) => pingFunc(...args))
+  ipcMain.handle('startMcpServer', (_, ...args: any[]) => startMcpServer(...args))
+  ipcMain.handle('stopMcpServer', (_, ...args: any[]) => stopMcpServer(...args))
+  ipcMain.handle('agentResponse', (_, ...args: any[]) => agentResponse(...args))
 
   createWindow()
 

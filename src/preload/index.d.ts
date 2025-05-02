@@ -1,8 +1,13 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
 
 declare global {
   interface Window {
-    electron: ElectronAPI
-    api: unknown
+    // electron: ElectronAPI
+    context: {
+      locale: string
+      pingFunc: (...args: any[]) => Promise<any>
+      startMcpServer: (...args: any[]) => Promise<any>
+      stopMcpServer: (...args: any[]) => Promise<any>
+      agentResponse: (...args: any[]) => Promise<any>
+    }
   }
 }

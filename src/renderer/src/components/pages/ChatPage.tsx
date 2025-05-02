@@ -17,7 +17,6 @@ import {
   Pencil, 
   BrainCircuit,
   Settings2,
-  CheckSquare,
   Play,
   Square
 } from 'lucide-react';
@@ -99,46 +98,12 @@ export default function ChatPage() {
     };
   }, [isServerRunning]);
 
-  const loadMcpTools = () => {
-    try {
-      const mcpConfig = localStorage.getItem('mcp-config');
-      if (mcpConfig) {
-        const config = JSON.parse(mcpConfig);
-        if (config.mcpServers && typeof config.mcpServers === 'object') {
-          return Object.entries(config.mcpServers).map(([name, serverConfig]: [string, any]) => ({
-            id: name,
-            name,
-            description: `MCP Server: ${name}`,
-            enabled: false,
-            command: serverConfig.command,
-            args: serverConfig.args
-          }));
-        }
-      }
-      return [];
-    } catch (error) {
-      console.error('Error loading MCP tools:', error);
-      return [];
-    }
-  };
-
   // Update available tools when MCP config changes
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'mcp-config') {
-        const newTools = loadMcpTools();
-        setChats(prevChats => 
-          prevChats.map(chat => ({
-            ...chat,
-            tools: chat.tools.map(tool => {
-              const newTool = newTools.find(t => t.id === tool.id);
-              if (newTool) {
-                return { ...newTool, enabled: tool.enabled };
-              }
-              return tool;
-            })
-          }))
-        );
+        // Force re-render when MCP config changes
+        setChats(prevChats => [...prevChats]);
       }
     };
 
@@ -174,13 +139,12 @@ export default function ChatPage() {
   };
 
   const createNewChat = () => {
-    const tools = loadMcpTools();
     const newChat: Chat = {
       id: Date.now().toString(),
       title: 'New Chat',
       messages: [],
       createdAt: Date.now(),
-      tools: tools,
+      tools: [], // We'll load tools dynamically when needed
     };
     setChats([newChat, ...chats]);
     setCurrentChatId(newChat.id);
@@ -249,106 +213,188 @@ export default function ChatPage() {
       })
     );
 
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'This is a simulated AI response. In a real implementation, this would be connected to an AI service.',
-        timestamp: Date.now(),
-      };
+    // @ts-ignore
+    const aiResponse = await window.context.agentResponse([...chats.find(chat => chat.id === currentChatId)?.messages || [], userMessage]);
+    const aiResponseMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: 'assistant',
+      content: aiResponse.response,
+      timestamp: Date.now(),
+    };
 
-      setChats(prevChats => 
-        prevChats.map(chat => {
-          if (chat.id === currentChatId) {
-            return {
-              ...chat,
-              messages: [...chat.messages, aiResponse]
-            };
-          }
-          return chat;
-        })
-      );
-    }, 1000);
+    setChats(prevChats => 
+      prevChats.map(chat => {
+        if (chat.id === currentChatId) {
+          return {
+            ...chat,
+            messages: [...chat.messages, userMessage, aiResponseMessage]
+          };
+        }
+        return chat;
+      })
+    );
+  };
+
+  const getCurrentMcpTools = () => {
+    try {
+      const mcpConfig = localStorage.getItem('mcp-config');
+      if (mcpConfig) {
+        const config = JSON.parse(mcpConfig);
+        if (config.mcpServers && typeof config.mcpServers === 'object') {
+          return Object.entries(config.mcpServers).map(([name, serverConfig]: [string, any]) => ({
+            id: name,
+            name,
+            description: `MCP Server: ${name}`,
+            enabled: false,
+            command: serverConfig.command,
+            args: serverConfig.args
+          }));
+        }
+      }
+      return [];
+    } catch (error) {
+      console.error('Error loading MCP tools:', error);
+      return [];
+    }
   };
 
   const toggleTool = (toolId: string) => {
-    if (isServerRunning) {
-      stopMcpServer();
-    }
-    
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat.id === currentChatId
-          ? {
+    setChats(prevChats => 
+      prevChats.map(chat => {
+        if (chat.id === currentChatId) {
+          // Find the tool in the current chat
+          const existingTool = chat.tools.find(t => t.id === toolId);
+          
+          if (existingTool) {
+            // If tool exists, toggle its enabled state
+            return {
               ...chat,
-              tools: chat.tools.map(tool =>
-                tool.id === toolId ? { ...tool, enabled: !tool.enabled } : tool
-              ),
+              tools: chat.tools.map(t => 
+                t.id === toolId ? { ...t, enabled: !t.enabled } : t
+              )
+            };
+          } else {
+            // If tool doesn't exist, add it from current MCP config
+            const mcpTools = getCurrentMcpTools();
+            const newTool = mcpTools.find(t => t.id === toolId);
+            
+            if (newTool) {
+              return {
+                ...chat,
+                tools: [...chat.tools, { ...newTool, enabled: true }]
+              };
             }
-          : chat
-      )
+          }
+        }
+        return chat;
+      })
     );
   };
 
   const enableAllTools = () => {
-    if (isServerRunning) {
-      stopMcpServer();
-    }
+    const mcpTools = getCurrentMcpTools();
     
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat.id === currentChatId
-          ? {
-              ...chat,
-              tools: chat.tools.map(tool => ({ ...tool, enabled: true })),
-            }
-          : chat
-      )
+    setChats(prevChats => 
+      prevChats.map(chat => {
+        if (chat.id === currentChatId) {
+          // Create a map of existing tools by ID for quick lookup
+          const existingToolsMap = new Map(
+            chat.tools.map(tool => [tool.id, tool])
+          );
+          
+          // Combine existing tools with new tools from MCP config
+          const updatedTools = mcpTools.map(tool => {
+            const existingTool = existingToolsMap.get(tool.id);
+            return existingTool 
+              ? { ...existingTool, enabled: true } 
+              : { ...tool, enabled: true };
+          });
+          
+          return {
+            ...chat,
+            tools: updatedTools
+          };
+        }
+        return chat;
+      })
     );
   };
 
   const disableAllTools = () => {
-    if (isServerRunning) {
-      stopMcpServer();
-    }
+    const mcpTools = getCurrentMcpTools();
     
-    setChats(prevChats =>
-      prevChats.map(chat =>
-        chat.id === currentChatId
-          ? {
-              ...chat,
-              tools: chat.tools.map(tool => ({ ...tool, enabled: false })),
-            }
-          : chat
-      )
+    setChats(prevChats => 
+      prevChats.map(chat => {
+        if (chat.id === currentChatId) {
+          // Create a map of existing tools by ID for quick lookup
+          const existingToolsMap = new Map(
+            chat.tools.map(tool => [tool.id, tool])
+          );
+          
+          // Combine existing tools with new tools from MCP config
+          const updatedTools = mcpTools.map(tool => {
+            const existingTool = existingToolsMap.get(tool.id);
+            return existingTool 
+              ? { ...existingTool, enabled: false } 
+              : { ...tool, enabled: false };
+          });
+          
+          return {
+            ...chat,
+            tools: updatedTools
+          };
+        }
+        return chat;
+      })
     );
   };
 
-  const startMcpServer = () => {
-    const currentChat = chats.find(chat => chat.id === currentChatId);
-    const enabledTools = currentChat?.tools.filter(tool => tool.enabled) || [];
-    
-    if (enabledTools.length === 0) {
+  const startMcpServer = async () => {
+    try {
+      setIsServerRunning(true);
+      const currentChat = chats.find(chat => chat.id === currentChatId);
+      const enabledTools = currentChat?.tools.filter(tool => tool.enabled) || [];
+      
+      if (enabledTools.length === 0) {
+        toast({
+          title: "No tools selected",
+          description: "Please select at least one tool to start the MCP server.",
+          variant: "destructive",
+        });
+        return;
+      }
+      console.log('Enabled tools:', enabledTools);
+      
+      const mcpConfig = localStorage.getItem('mcp-config');
+      const config = JSON.parse(mcpConfig || '{}');
+      const apiKey = JSON.parse(localStorage.getItem('user-settings') || '{}')?.openrouterKey;
+      // @ts-ignore
+      await window.context.startMcpServer(config, apiKey);
+    } catch (error) {
+      console.error('Error starting MCP server:', error);
       toast({
-        title: "No tools selected",
-        description: "Please select at least one tool to start the MCP server.",
+        title: "Error starting MCP server",
+        description: "Please try again later.",
         variant: "destructive",
       });
-      return;
     }
-    
-    setShowServerConfig(true);
   };
 
-  const stopMcpServer = () => {
-    setIsServerRunning(false);
+  const stopMcpServer = async () => {
+    try {
+      setIsServerRunning(false);
+      // @ts-ignore
+      await window.context.stopMcpServer();
+    } catch (error) {
+      console.log("Error stopping MCP server:", error);
+    }
   };
 
-  const toggleServer = () => {
+  const toggleServer = async () => {
     if (!isServerRunning) {
-      startMcpServer();
+      await startMcpServer();
     } else {
-      stopMcpServer();
+      await stopMcpServer();
     }
   };
 
@@ -356,17 +402,39 @@ export default function ChatPage() {
     const currentChat = chats.find(chat => chat.id === currentChatId);
     if (!currentChat) return {};
 
-    const enabledTools = currentChat.tools.filter(tool => tool.enabled);
-    const mcpConfig = JSON.parse(localStorage.getItem('mcp-config') || '{"mcpServers": {}}');
-    const enabledConfig = { mcpServers: {} };
+    // Get the latest MCP tools configuration
+    const mcpTools = getCurrentMcpTools();
+    
+    // Create a map of existing tools by ID for quick lookup
+    const existingToolsMap = new Map(
+      currentChat.tools.map(tool => [tool.id, tool])
+    );
+    
+    // Combine existing tools with new tools from MCP config
+    const allTools = mcpTools.map(tool => {
+      const existingTool = existingToolsMap.get(tool.id);
+      return existingTool || tool;
+    });
+    
+    // Filter enabled tools
+    const enabledTools = allTools.filter(tool => {
+      const existingTool = existingToolsMap.get(tool.id);
+      return existingTool ? existingTool.enabled : false;
+    });
 
+    if (enabledTools.length === 0) return {};
+
+    const config: { [key: string]: any } = {};
     enabledTools.forEach(tool => {
-      if (mcpConfig.mcpServers[tool.id]) {
-        enabledConfig.mcpServers[tool.id] = mcpConfig.mcpServers[tool.id];
+      if (tool.command && tool.args) {
+        config[tool.id] = {
+          command: tool.command,
+          args: tool.args
+        };
       }
     });
 
-    return enabledConfig;
+    return { mcpServers: config };
   };
 
   const currentChat = chats.find(chat => chat.id === currentChatId);
@@ -475,7 +543,7 @@ export default function ChatPage() {
               </div>
             </ScrollArea>
 
-            <div className="px-4 md:px-16 lg:px-32 xl:px-48 py-6 bg-gradient-to-t from-background to-transparent">
+            <div className="px-4 md:px-16 lg:px-32 xl:px-48 py-6 bg-gradient-to-t from-background to-transparent -mt-10">
               <div className="max-w-3xl mx-auto">
                 <div className="rounded-2xl bg-card/30 backdrop-blur-sm border-2 border-primary/20 shadow-[0_0_15px_-3px_rgba(var(--primary),0.2)]">
                   <form 
@@ -531,30 +599,61 @@ export default function ChatPage() {
                               </div>
                             </div>
                             <div className="space-y-3">
-                              {currentChat.tools.map(tool => (
-                                <div
-                                  key={tool.id}
-                                  className="flex items-start space-x-3 rounded-lg p-2 transition-colors hover:bg-muted/50"
-                                >
-                                  <Checkbox
-                                    id={tool.id}
-                                    checked={tool.enabled}
-                                    onCheckedChange={() => toggleTool(tool.id)}
-                                    className="mt-1"
-                                  />
-                                  <div className="flex-1">
-                                    <label
-                                      htmlFor={tool.id}
-                                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                                    >
-                                      {tool.name}
-                                    </label>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                      {tool.description}
-                                    </p>
-                                  </div>
-                                </div>
-                              ))}
+                              {(() => {
+                                // Get current MCP tools
+                                const mcpTools = getCurrentMcpTools();
+                                
+                                // Get existing tools from current chat
+                                const existingTools = currentChat.tools || [];
+                                const existingToolsMap = new Map(
+                                  existingTools.map(tool => [tool.id, tool])
+                                );
+                                
+                                // If no tools available, show message
+                                if (mcpTools.length === 0) {
+                                  return (
+                                    <div className="text-sm text-muted-foreground py-2">
+                                      No MCP tools configured. Add tools in Settings.
+                                    </div>
+                                  );
+                                }
+                                
+                                // Show all tools from MCP config
+                                return mcpTools.map(tool => {
+                                  // Check if tool exists in current chat
+                                  const existingTool = existingToolsMap.get(tool.id);
+                                  const isEnabled = existingTool ? existingTool.enabled : false;
+                                  
+                                  return (
+                                    <div key={tool.id} className="flex items-center space-x-2">
+                                      <Checkbox 
+                                        id={`tool-${tool.id}`} 
+                                        checked={isEnabled}
+                                        onCheckedChange={() => toggleTool(tool.id)}
+                                      />
+                                      <label
+                                        htmlFor={`tool-${tool.id}`}
+                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                                      >
+                                        {tool.name}
+                                      </label>
+                                    </div>
+                                  );
+                                });
+                              })()}
+                              
+                              <div className="pt-2 flex justify-end">
+                                {!isServerRunning && (
+                                  <Button 
+                                    size="sm" 
+                                    onClick={() => {
+                                      setShowServerConfig(true);
+                                    }}
+                                  >
+                                    Start Server
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </PopoverContent>
                         </Popover>
@@ -564,7 +663,7 @@ export default function ChatPage() {
                         variant="outline"
                         size="sm"
                         type="button"
-                        onClick={toggleServer}
+                        onClick={() => isServerRunning==false? setShowServerConfig(true) : toggleServer()}
                         className={`h-9 bg-white/5 border-2 border-primary/20 hover:bg-primary/10 ${
                           isServerRunning ? 'text-yellow-500 hover:text-yellow-500' : ''
                         }`}
@@ -746,8 +845,8 @@ export default function ChatPage() {
             <div className="mt-4 flex justify-end">
               <Button
                 onClick={() => {
-                  setIsServerRunning(true);
                   setShowServerConfig(false);
+                  toggleServer();
                 }}
               >
                 Start MCP Server
