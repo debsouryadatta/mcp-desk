@@ -213,8 +213,9 @@ export default function ChatPage() {
       })
     );
 
+    const apiKey = JSON.parse(localStorage.getItem('user-settings') || '{}')?.openrouterKey;
     // @ts-ignore
-    const aiResponse = await window.context.agentResponse([...chats.find(chat => chat.id === currentChatId)?.messages || [], userMessage]);
+    const aiResponse = await window.context.agentResponse([...chats.find(chat => chat.id === currentChatId)?.messages || [], userMessage], apiKey);
     const aiResponseMessage: Message = {
       id: (Date.now() + 1).toString(),
       role: 'assistant',

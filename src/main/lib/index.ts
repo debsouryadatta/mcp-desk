@@ -3,7 +3,6 @@ import { MCPAgent } from 'easy-mcp-use';
 import { ChatOpenAI } from '@langchain/openai';
 
 let clientInstance: MCPClient | null = null;
-let agentInstance: MCPAgent | null = null;
 
 
 export const pingFunc = (...args: any[]) => {
@@ -19,6 +18,18 @@ export const startMcpServer = async (...args: any[]) => {
     
   const client = MCPClient.fromConfig( config );
   try { 
+    clientInstance = client;
+    // agentInstance = agent;
+  } catch (error) {
+    console.error('Error starting MCP server:', error)
+    throw error
+  }
+}
+
+export const agentResponse = async (...args: any[]) => {
+  try {
+    console.log('Generating response...')
+    const apiKey = args[1]
     const chat = new ChatOpenAI(
       {
         modelName: 'google/gemini-2.0-flash-001', 
@@ -30,24 +41,12 @@ export const startMcpServer = async (...args: any[]) => {
       }
     );
     let options = {
-      client: client,
+      client: clientInstance,
       // verbose: true,
       maxSteps: 30, 
       llm:  chat,
     }
     const agent = new MCPAgent(options)
-    clientInstance = client;
-    agentInstance = agent;
-  } catch (error) {
-    console.error('Error starting MCP server:', error)
-    throw error
-  }
-}
-
-export const agentResponse = async (...args: any[]) => {
-  try {
-    console.log('Generating response...')
-    const agent = agentInstance
     const messages = args[0]
     const formattedMessages = messages.map((message: any) => {
       return {

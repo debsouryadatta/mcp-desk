@@ -17,3 +17,4 @@
 15. `pnpm i easy-mcp-use @langchain/openai`
 16. Creating the startMcpServer, agentResponse, stopMcpServer functions in the main process and calling them through IPC from the renderer process (ChatPage.tsx)
 17. Facing issues with the agentResponse function -> Specifically during the second agent call
+18. Issue fixed by changing the approach, creating the client instance once during the start server func. call as it was earlier but creating the agent instance every time the agentResponse func. is called.
