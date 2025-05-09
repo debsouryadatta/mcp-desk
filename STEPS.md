@@ -18,3 +18,8 @@
 16. Creating the startMcpServer, agentResponse, stopMcpServer functions in the main process and calling them through IPC from the renderer process (ChatPage.tsx)
 17. Facing issues with the agentResponse function -> Specifically during the second agent call
 18. Issue fixed by changing the approach, creating the client instance once during the start server func. call as it was earlier but creating the agent instance every time the agentResponse func. is called.
+19. Created two functions in the main process, agentResponse and agentResponseWithMCP, agentResponseWithMCP is used when the MCP server is running or else the agentResponse function is called
+20. Adding a search input in the llm model select popup inside settings tab
+21. Added proper error message if the selected llm model is not capable of tool calling
+22. Added Markdown rendering in the chat ui for the assistant messages
+23. Modified the icon of the app in resources/icon.png and `pnpm run build` , `pnpm run build:mac`

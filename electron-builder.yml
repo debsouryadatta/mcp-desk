@@ -1,8 +1,9 @@
 appId: com.electron.app
-productName: mcp-desk
+productName: MCP Desk
 directories:
   buildResources: build
 files:
+  - '!log.txt'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -13,12 +14,14 @@ asarUnpack:
   - resources/**
 win:
   executableName: mcp-desk
+  icon: resources/icon.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
 mac:
+  icon: resources/icon.png
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -29,6 +32,7 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  icon: resources/icon.png
   target:
     - AppImage
     - snap

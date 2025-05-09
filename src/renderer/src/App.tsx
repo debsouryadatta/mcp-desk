@@ -17,6 +17,9 @@ function App() {
   return (
     <ThemeProvider defaultTheme="light" storageKey="dashboard-theme">
       <div className="relative min-h-screen overflow-hidden">
+        {/* Titlebar area for macOS */}
+        <div className="titlebar-area" />
+        
         {/* Base gradient */}
         <div className="fixed inset-0 bg-gradient-to-br from-indigo-50/80 via-background to-background dark:from-indigo-950/20 dark:via-background dark:to-background" />
         
@@ -32,7 +35,7 @@ function App() {
         <div className="fixed inset-0 bg-[radial-gradient(circle_800px_at_100%_100%,_var(--tw-gradient-stops))] from-pink-100/10 via-transparent to-transparent dark:from-pink-900/5" />
         
         {/* Content Container */}
-        <div className="relative flex h-screen backdrop-blur-[2px]">
+        <div className="relative flex h-screen backdrop-blur-[2px] pt-7">
           <Sidebar 
             collapsed={collapsed} 
             setCollapsed={setCollapsed} 
@@ -40,7 +43,7 @@ function App() {
             setActiveTab={setActiveTab}
           />
           <main 
-            className={`flex-1 overflow-hidden transition-all duration-300 ${
+            className={`flex-1 overflow-hidden transition-all duration-300 pt-7 ${
               collapsed ? 'ml-16' : 'ml-64'
             }`}
           >

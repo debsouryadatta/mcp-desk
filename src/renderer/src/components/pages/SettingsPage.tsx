@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, User, MapPin, Github, Key, Cpu, Image, Music, Plus, Trash2, Download, Upload, Server } from 'lucide-react';
+import { Loader2, Save, User, MapPin, Github, Key, Cpu, Image, Music, Plus, Trash2, Download, Upload, Server, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Settings {
@@ -38,16 +38,16 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(() => {
     const saved = localStorage.getItem('user-settings');
     return saved ? JSON.parse(saved) : {
-      name: 'Jack Grealish',
+      name: 'John Doe',
       location: '',
       githubUsername: '',
       openrouterKey: '',
-      selectedModel: '',
-      profilePicture: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=100',
+      selectedModel: 'google/gemini-2.0-flash-001',
+      profilePicture: '',
       songs: [
         {
-          title: "Shape of You",
-          artist: "Ed Sheeran",
+          title: "Demo Song",
+          artist: "Demo Artist",
           url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
         }
       ],
@@ -71,6 +71,7 @@ export default function SettingsPage() {
     return saved || '{\n  "mcpServers": {}\n}';
   });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
 
   useEffect(() => {
     if (settings.openrouterKey) {
@@ -192,7 +193,7 @@ export default function SettingsPage() {
       const url = URL.createObjectURL(dataBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'dashboard-settings.json';
+      link.download = 'mcp-desk.json';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -258,9 +259,15 @@ export default function SettingsPage() {
     }
   };
 
+  // Create a filtered models list based on search query
+  const filteredModels = models.filter(model => 
+    model.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) || 
+    model.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
+  );
+
   return (
     <ScrollArea className="h-screen">
-      <div className="container max-w-4xl mx-auto py-8 px-4 sm:px-6">
+      <div className="container max-w-4xl mx-auto py-8 px-4 sm:px-6 pb-20">
         <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-6 mb-8 border-b">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2 sm:px-6 pt-6">
             <div className="min-w-0">
@@ -387,70 +394,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Music Player Card */}
-          <Card className="border-2">
-            <CardHeader className="px-8 pt-8">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Music className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Music Player</CardTitle>
-                  <CardDescription className="text-sm mt-1">
-                    Manage your music playlist
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="px-8 pb-8">
-              <div className="space-y-6">
-                {settings.songs.map((song, index) => (
-                  <div key={index} className="space-y-3 p-4 rounded-lg border bg-card/50">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Song {index + 1}</Label>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => removeSong(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <div className="grid gap-3">
-                      <Input
-                        value={song.title}
-                        onChange={(e) => handleSongChange(index, 'title', e.target.value)}
-                        placeholder="Song title"
-                        className="h-11"
-                      />
-                      <Input
-                        value={song.artist}
-                        onChange={(e) => handleSongChange(index, 'artist', e.target.value)}
-                        placeholder="Artist name"
-                        className="h-11"
-                      />
-                      <Input
-                        value={song.url}
-                        onChange={(e) => handleSongChange(index, 'url', e.target.value)}
-                        placeholder="Audio file URL"
-                        className="h-11"
-                      />
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="outline"
-                  onClick={addSong}
-                  className="w-full h-11"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Song
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* AI Configuration Card */}
           <Card className="border-2">
             <CardHeader className="px-8 pt-8">
@@ -491,11 +434,32 @@ export default function SettingsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {models && models.length > 0 ? (
-                      models.map((model) => (
-                        <SelectItem key={model.id} value={model.id}>
-                          {model.name}
-                        </SelectItem>
-                      ))
+                      <>
+                        <div className="px-2 py-2 sticky top-0 bg-popover z-10">
+                          <div className="flex items-center border rounded-md px-3 h-9">
+                            <Search className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <input 
+                              className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                              placeholder="Search models..."
+                              value={modelSearchQuery}
+                              onChange={(e) => setModelSearchQuery(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                        <ScrollArea className="h-72">
+                          {filteredModels.length > 0 ? (
+                            filteredModels.map((model) => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
+                            ))
+                          ) : (
+                            <div className="px-2 py-4 text-center text-sm text-muted-foreground">
+                              No models found matching "{modelSearchQuery}"
+                            </div>
+                          )}
+                        </ScrollArea>
+                      </>
                     ) : (
                       <SelectItem value="no-models" disabled>
                         No models available
@@ -579,6 +543,70 @@ export default function SettingsPage() {
                   </div>
                 </DialogContent>
               </Dialog>
+            </CardContent>
+          </Card>
+
+          {/* Music Player Card */}
+          <Card className="border-2">
+            <CardHeader className="px-8 pt-8">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Music className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Music Player</CardTitle>
+                  <CardDescription className="text-sm mt-1">
+                    Manage your music playlist
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="px-8 pb-8">
+              <div className="space-y-6">
+                {settings.songs.map((song, index) => (
+                  <div key={index} className="space-y-3 p-4 rounded-lg border bg-card/50">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm font-medium">Song {index + 1}</Label>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeSong(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid gap-3">
+                      <Input
+                        value={song.title}
+                        onChange={(e) => handleSongChange(index, 'title', e.target.value)}
+                        placeholder="Song title"
+                        className="h-11"
+                      />
+                      <Input
+                        value={song.artist}
+                        onChange={(e) => handleSongChange(index, 'artist', e.target.value)}
+                        placeholder="Artist name"
+                        className="h-11"
+                      />
+                      <Input
+                        value={song.url}
+                        onChange={(e) => handleSongChange(index, 'url', e.target.value)}
+                        placeholder="Audio file URL"
+                        className="h-11"
+                      />
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  variant="outline"
+                  onClick={addSong}
+                  className="w-full h-11"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Song
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

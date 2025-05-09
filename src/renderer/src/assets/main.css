@@ -66,6 +66,8 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    margin: 0;
+    padding: 0;
   }
 }
 
@@ -168,4 +170,71 @@
 .glass-card input,
 .glass-card .rounded-lg {
   @apply rounded-xl;
+}
+
+/* Add these styles at the end of the file to override any syntax highlighting */
+/* Remove code syntax highlighting */
+code, pre, code *, pre * {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+
+pre {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 0.5rem !important;
+  padding: 1rem !important;
+}
+
+.dark pre {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Override any highlighting classes */
+.hljs,
+.hljs-subst,
+.hljs-tag,
+.hljs-title,
+.hljs-keyword,
+.hljs-section,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-name,
+.hljs-attr,
+.hljs-symbol,
+.hljs-attribute,
+.hljs-built_in,
+.hljs-params,
+.hljs-type,
+.hljs-string,
+.hljs-number,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-comment,
+.hljs-quote,
+.hljs-template-tag,
+.hljs-deletion,
+.hljs-meta,
+.hljs-meta-string,
+.hljs-doctag,
+.hljs-regexp,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-addition,
+.hljs-emphasis,
+.hljs-strong {
+  color: inherit !important;
+  background: transparent !important;
+}
+
+/* Update the titlebar styling */
+.titlebar-area {
+  -webkit-app-region: drag;
+  background-color: black;
+  height: 28px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  opacity: 0.8;
 }

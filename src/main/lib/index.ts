@@ -11,15 +11,14 @@ export const pingFunc = (...args: any[]) => {
 }
 
 export const startMcpServer = async (...args: any[]) => {
-  console.log('Starting MCP server...')
-  const config = args[0]
-  const apiKey = args[1]
-  if (!apiKey) throw new Error('API key not found')
-    
-  const client = MCPClient.fromConfig( config );
   try { 
+    console.log('Starting MCP server...')
+    const config = args[0]
+    const apiKey = args[1]
+    if (!apiKey) throw new Error('API key not found')
+      
+    const client = MCPClient.fromConfig( config );
     clientInstance = client;
-    // agentInstance = agent;
   } catch (error) {
     console.error('Error starting MCP server:', error)
     throw error
@@ -28,11 +27,54 @@ export const startMcpServer = async (...args: any[]) => {
 
 export const agentResponse = async (...args: any[]) => {
   try {
-    console.log('Generating response...')
+    console.log('Generating response from agentResponse...')
     const apiKey = args[1]
+    const selectedModel = args[2]
     const chat = new ChatOpenAI(
       {
-        modelName: 'google/gemini-2.0-flash-001', 
+        modelName: selectedModel, 
+        streaming: true,
+        openAIApiKey: apiKey,
+        configuration: {
+          baseURL: 'https://openrouter.ai/api/v1',  
+        }
+      }
+    );
+    const client = MCPClient.fromConfig( {} );
+    let options = {
+      client: client,
+      // verbose: true,
+      maxSteps: 30, 
+      llm:  chat,
+    }
+    const agent = new MCPAgent(options)
+    const messages = args[0]
+    const formattedMessages = messages.map((message: any) => {
+      return {
+        role: message.role,
+        content: message.content
+      }
+    })
+    console.log('Formatted messages:', formattedMessages)
+    const response = await agent.run({
+      messages: formattedMessages,
+    })
+    return { response: response.output }
+  } catch (error) {
+    console.error('Error generating response:', error)
+    throw error
+  }
+}
+
+
+export const agentResponseWithMCP = async (...args: any[]) => {
+  try {
+    console.log('Generating response from agentResponseWithMCP...')
+    const apiKey = args[1]
+    const selectedModel = args[2]
+    const chat = new ChatOpenAI(
+      {
+        modelName: selectedModel, 
         streaming: true,
         openAIApiKey: apiKey,
         configuration: {

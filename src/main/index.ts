@@ -2,7 +2,10 @@ import { app, shell, BrowserWindow, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { agentResponse, pingFunc, startMcpServer, stopMcpServer } from './lib'
+import { agentResponse, agentResponseWithMCP, pingFunc, startMcpServer, stopMcpServer } from './lib'
+
+// Set app name globally
+app.name = 'MCP Desk'
 
 function createWindow(): void {
   // Create the browser window.
@@ -11,8 +14,8 @@ function createWindow(): void {
     height: 700,
     show: false,
     title: 'MCP Desk',
-    backgroundColor: '#2e2c29',
-    titleBarStyle: 'default',
+    backgroundColor: '#000000',
+    titleBarStyle: 'hiddenInset',
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -64,6 +67,14 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  // Set app name
+  app.setName('MCP Desk')
+  
+  // For macOS, set the dock menu name
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(icon)
+  }
+  
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.mcp-desk')
 
@@ -80,6 +91,7 @@ app.whenReady().then(() => {
   ipcMain.handle('startMcpServer', (_, ...args: any[]) => startMcpServer(...args))
   ipcMain.handle('stopMcpServer', (_, ...args: any[]) => stopMcpServer(...args))
   ipcMain.handle('agentResponse', (_, ...args: any[]) => agentResponse(...args))
+  ipcMain.handle('agentResponseWithMCP', (_, ...args: any[]) => agentResponseWithMCP(...args))
 
   createWindow()
 

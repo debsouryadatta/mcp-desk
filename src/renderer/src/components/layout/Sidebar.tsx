@@ -24,7 +24,7 @@ export default function Sidebar({ collapsed, setCollapsed, activeTab, setActiveT
 
   return (
     <aside
-      className={`bg-card fixed inset-y-0 left-0 z-20 flex flex-col border-r border-border transition-all duration-300 ease-in-out ${
+      className={`bg-card fixed inset-y-0 left-0 z-20 flex flex-col border-r border-border transition-all duration-300 ease-in-out pt-7 ${
         collapsed ? 'w-16' : 'w-64'
       }`}
     >

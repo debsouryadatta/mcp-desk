@@ -30,14 +30,14 @@ export default function Dashboard() {
   const [settings, setSettings] = useState<Settings>(() => {
     const saved = localStorage.getItem('user-settings');
     return saved ? JSON.parse(saved) : {
-      name: 'Jack Grealish',
+      name: 'John Doe',
       location: '',
       githubUsername: '',
-      profilePicture: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=100',
+      profilePicture: '',
       songs: [
         {
-          title: "Shape of You",
-          artist: "Ed Sheeran",
+          title: "Demo Song",
+          artist: "Demo Artist",
           url: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
         }
       ],
@@ -84,7 +84,7 @@ export default function Dashboard() {
 
   return (
     <ScrollArea className="h-screen">
-      <div className="container mx-auto p-4">
+      <div className="container mx-auto p-4 mb-20">
         <motion.div 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}

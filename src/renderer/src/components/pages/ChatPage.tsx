@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { 
   Plus, 
   Send, 
@@ -18,7 +20,8 @@ import {
   BrainCircuit,
   Settings2,
   Play,
-  Square
+  Square,
+  Loader2
 } from 'lucide-react';
 
 interface Message {
@@ -64,6 +67,7 @@ export default function ChatPage() {
   const [showSidebar, setShowSidebar] = useState(false);
   const [isServerRunning, setIsServerRunning] = useState(false);
   const [showServerConfig, setShowServerConfig] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const editInputRefs = useRef<{ [key: string]: HTMLInputElement }>({});
   const { toast } = useToast();
@@ -83,20 +87,7 @@ export default function ChatPage() {
       stopMcpServer();
     }
   }, [currentChatId]);
-
-  // Stop MCP server when navigating away (visibility change)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden && isServerRunning) {
-        stopMcpServer();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isServerRunning]);
+  
 
   // Update available tools when MCP config changes
   useEffect(() => {
@@ -188,52 +179,88 @@ export default function ChatPage() {
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || !currentChatId) return;
+    try {
+      if (!input.trim() || !currentChatId) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input.trim(),
-      timestamp: Date.now(),
-    };
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        role: 'user',
+        content: input.trim(),
+        timestamp: Date.now(),
+      };
 
-    setInput('');
+      setInput('');
+      setIsThinking(true);
 
-    setChats(prevChats => 
-      prevChats.map(chat => {
-        if (chat.id === currentChatId) {
-          const isFirstMessage = chat.messages.length === 0;
-          return {
-            ...chat,
-            title: isFirstMessage ? generateChatTitle(userMessage.content) : chat.title,
-            messages: [...chat.messages, userMessage]
-          };
-        }
-        return chat;
-      })
-    );
+      setChats(prevChats => 
+        prevChats.map(chat => {
+          if (chat.id === currentChatId) {
+            const isFirstMessage = chat.messages.length === 0;
+            return {
+              ...chat,
+              title: isFirstMessage ? generateChatTitle(userMessage.content) : chat.title,
+              messages: [...chat.messages, userMessage]
+            };
+          }
+          return chat;
+        })
+      );
 
-    const apiKey = JSON.parse(localStorage.getItem('user-settings') || '{}')?.openrouterKey;
-    // @ts-ignore
-    const aiResponse = await window.context.agentResponse([...chats.find(chat => chat.id === currentChatId)?.messages || [], userMessage], apiKey);
-    const aiResponseMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: aiResponse.response,
-      timestamp: Date.now(),
-    };
+      const apiKey = JSON.parse(localStorage.getItem('user-settings') || '{}')?.openrouterKey;
+      const selectedModel = JSON.parse(localStorage.getItem('user-settings') || '{}')?.selectedModel;
+      console.log('Selected model:', selectedModel);
+      
+      let aiResponse;
+      if (!isServerRunning) {
+        // @ts-ignore
+        aiResponse = await window.context.agentResponse([...chats.find(chat => chat.id === currentChatId)?.messages || [], userMessage], apiKey, selectedModel);
+      } else {
+        // @ts-ignore
+        aiResponse = await window.context.agentResponseWithMCP([...chats.find(chat => chat.id === currentChatId)?.messages || [], userMessage], apiKey, selectedModel);
+      }
+      const aiResponseMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: aiResponse.response,
+        timestamp: Date.now(),
+      };
 
-    setChats(prevChats => 
-      prevChats.map(chat => {
-        if (chat.id === currentChatId) {
-          return {
-            ...chat,
-            messages: [...chat.messages, userMessage, aiResponseMessage]
-          };
-        }
-        return chat;
-      })
-    );
+      setIsThinking(false);
+
+      setChats(prevChats => 
+        prevChats.map(chat => {
+          if (chat.id === currentChatId) {
+            return {
+              ...chat,
+              messages: [...chat.messages, aiResponseMessage]
+            };
+          }
+          return chat;
+        })
+      );
+    } catch (error) {
+      setIsThinking(false);
+      console.error('Error sending message:', error);
+      if(error instanceof Error && error.message.includes('No endpoints found that support tool use')) {
+        toast({
+          title: "Error sending message",
+          description: "No endpoints found that support tool use. Please select a different model.",
+          variant: "destructive",
+        })
+      } else if(error instanceof Error && error.message.includes('No auth credentials found')){
+        toast({
+          title: "Error sending message",
+          description: "Please provide your OpenRouter API key in the settings tab.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Error sending message",
+          description: "Please try again later.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const getCurrentMcpTools = () => {
@@ -362,6 +389,7 @@ export default function ChatPage() {
           description: "Please select at least one tool to start the MCP server.",
           variant: "destructive",
         });
+        setIsServerRunning(false);
         return;
       }
       console.log('Enabled tools:', enabledTools);
@@ -441,21 +469,21 @@ export default function ChatPage() {
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
   return (
-    <div className="flex h-full relative">
+    <div className="flex h-full relative -mt-8">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-400/10 via-background to-background dark:from-indigo-800/20 dark:via-background dark:to-background" />
 
       <div className="flex-1 flex flex-col relative">
         <motion.div 
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="h-20 border-b border-border/50 flex items-center justify-between px-6 bg-card/30 backdrop-blur-xl"
+          className="h-20 border-b border-border/50 flex items-center justify-between px-6 bg-card/30 backdrop-blur-xl -mb-10"
         >
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center ring-2 ring-primary/20">
               <BrainCircuit className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <span className="font-semibold text-lg">Sense AI</span>
+              <span className="font-semibold text-lg">AI Agent</span>
               <p className="text-sm text-muted-foreground">Your intelligent assistant</p>
             </div>
           </div>
@@ -528,23 +556,50 @@ export default function ChatPage() {
                           <User className="h-5 w-5" />
                         )}
                       </div>
-                      <div 
-                        className={`flex-1 rounded-2xl bg-opacity-80 backdrop-blur-sm ${
-                          message.role === 'assistant' 
-                            ? 'bg-card/30 border-2 border-primary/20 shadow-[0_0_15px_-3px_rgba(var(--primary),0.2)]' 
-                            : 'bg-primary/90 text-primary-foreground border-2 border-primary/40'
-                        }`}
-                      >
-                        <div className="p-6">{message.content}</div>
-                      </div>
+                      {message.role === 'assistant' ? (
+                        <div className="flex-1 rounded-2xl bg-opacity-80 backdrop-blur-sm bg-card/30 border-2 border-primary/20 shadow-[0_0_15px_-3px_rgba(var(--primary),0.2)]">
+                          <div className="p-6">
+                            <div className="prose dark:prose-invert max-w-none prose-headings:text-primary prose-a:text-primary prose-strong:text-primary/90 text-zinc-800 dark:text-zinc-100">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {message.content}
+                              </ReactMarkdown>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 rounded-2xl bg-opacity-80 backdrop-blur-sm bg-primary/90 text-primary-foreground border-2 border-primary/40">
+                          <div className="p-6">
+                            <span>{message.content}</span>
+                          </div>
+                        </div>
+                      )}
                     </motion.div>
                   ))}
                 </AnimatePresence>
+                
+                {isThinking && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-start gap-4 flex-row"
+                  >
+                    <div className="shrink-0 rounded-xl p-2 ring-2 bg-primary/10 ring-primary/20 text-primary">
+                      <BrainCircuit className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1 rounded-2xl bg-opacity-80 backdrop-blur-sm bg-card/30 border-2 border-primary/20 shadow-[0_0_15px_-3px_rgba(var(--primary),0.2)]">
+                      <div className="p-6 flex items-center">
+                        <Loader2 className="h-5 w-5 mr-2 animate-spin text-primary" />
+                        <span className="text-muted-foreground">AI is thinking...</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
 
-            <div className="px-4 md:px-16 lg:px-32 xl:px-48 py-6 bg-gradient-to-t from-background to-transparent -mt-10">
+            <div className="px-4 md:px-16 lg:px-32 xl:px-48 py-6 bg-gradient-to-t from-background to-transparent -mt-14 -mb-10">
               <div className="max-w-3xl mx-auto">
                 <div className="rounded-2xl bg-card/30 backdrop-blur-sm border-2 border-primary/20 shadow-[0_0_15px_-3px_rgba(var(--primary),0.2)]">
                   <form 
@@ -683,14 +738,19 @@ export default function ChatPage() {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder="Ask me anything..."
+                        disabled={isThinking}
                         className="flex-1 bg-white/5 border-2 border-primary/20 focus:border-primary/40 backdrop-blur-sm placeholder:text-muted-foreground dark:placeholder:text-white/50"
                       />
                       <Button 
                         type="submit" 
-                        disabled={!input.trim()}
+                        disabled={!input.trim() || isThinking}
                         className="px-6 bg-primary/90 hover:bg-primary border-2 border-primary/40"
                       >
-                        <Send className="h-4 w-4 mr-2" />
+                        {isThinking ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4 mr-2" />
+                        )}
                         Send
                       </Button>
                     </div>
@@ -726,14 +786,18 @@ export default function ChatPage() {
         )}
       </div>
 
-      <AnimatePresence>
+      <AnimatePresence mode="wait">
         {showSidebar && (
           <motion.div
-            initial={{ x: 320, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 320, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed inset-y-0 right-0 w-80 bg-card/80 backdrop-blur-xl border-l border-border/50 shadow-2xl"
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ 
+              type: "tween", 
+              ease: "easeOut",
+              duration: 0.1
+            }}
+            className="fixed inset-y-0 right-0 w-80 bg-card/80 backdrop-blur-xl border-l border-border/50 shadow-2xl z-50"
           >
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
@@ -831,6 +895,19 @@ export default function ChatPage() {
               </ScrollArea>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showSidebar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 bg-background/50 backdrop-blur-sm z-40"
+            onClick={() => setShowSidebar(false)}
+          />
         )}
       </AnimatePresence>
 

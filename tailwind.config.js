@@ -4,6 +4,27 @@ module.exports = {
   content: ['./src/renderer/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      typography: {
+        DEFAULT: {
+          css: {
+            'code::before': {
+              content: '""',
+            },
+            'code::after': {
+              content: '""',
+            },
+            'pre code': {
+              color: 'inherit',
+              background: 'transparent',
+            },
+            code: {
+              color: 'inherit',
+              background: 'transparent',
+              fontWeight: 'normal',
+            },
+          },
+        },
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
@@ -75,5 +96,5 @@ module.exports = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')],
 }

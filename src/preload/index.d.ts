@@ -8,6 +8,7 @@ declare global {
       startMcpServer: (...args: any[]) => Promise<any>
       stopMcpServer: (...args: any[]) => Promise<any>
       agentResponse: (...args: any[]) => Promise<any>
+      agentResponseWithMCP: (...args: any[]) => Promise<any>
     }
   }
 }

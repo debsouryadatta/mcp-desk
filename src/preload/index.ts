@@ -10,7 +10,8 @@ try {
     pingFunc: (...args: any[]) => ipcRenderer.invoke('pingFunc', ...args),
     startMcpServer: (...args: any[]) => ipcRenderer.invoke('startMcpServer', ...args),
     stopMcpServer: (...args: any[]) => ipcRenderer.invoke('stopMcpServer', ...args),
-    agentResponse: (...args: any[]) => ipcRenderer.invoke('agentResponse', ...args)
+    agentResponse: (...args: any[]) => ipcRenderer.invoke('agentResponse', ...args),
+    agentResponseWithMCP: (...args: any[]) => ipcRenderer.invoke('agentResponseWithMCP', ...args)
   })
 } catch (error) {
   console.error(error)
