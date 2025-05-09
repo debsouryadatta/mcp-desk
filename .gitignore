@@ -7,3 +7,6 @@ out
 .env
 log.txt
 build
+
+# Large installation files
+installation-files

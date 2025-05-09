@@ -23,3 +23,4 @@
 21. Added proper error message if the selected llm model is not capable of tool calling
 22. Added Markdown rendering in the chat ui for the assistant messages
 23. Modified the icon of the app in resources/icon.png and `pnpm run build` , `pnpm run build:mac`
+24. Large file upload issues to Github using LFS, fix: Using GitHub Releases for distributing the installation files
